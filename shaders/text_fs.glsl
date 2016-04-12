@@ -1,5 +1,3 @@
-#version 140
-
 in vec2 uv;
 uniform sampler2D texture;
 uniform vec3 textColor;

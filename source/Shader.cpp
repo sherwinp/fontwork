@@ -1,31 +1,128 @@
+// Std. Includes
+#include <iostream>
+#include <sstream>
+#include <fstream>
+
+#include <map>
+#include <string>
+// GLEW
+#include <GL/glew.h>
+// GLFW
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "Shader.h"
 
-#include <iostream>
+
+void Shader::Load(std::string filepathvs, std::string filepathfs, std::string filepathgs, std::string name)
+{
+    // 1. Retrieve the vertex/fragment source code from filePath
+    std::string vertexCode;
+    std::string fragmentCode;
+    std::string geometryCode;
+    bool hasGeometryShaderCode;
+    try
+    {
+        // Open files
+        std::stringstream vShaderStream;
+        std::stringstream fShaderStream;
+
+        std::ifstream vertexShaderFile(filepathvs);
+        // Read file's buffer contents into streams
+        vShaderStream << vertexShaderFile.rdbuf();
+        // close file handlers
+        vertexShaderFile.close();
+        // Convert stream into string
+        vertexCode = vShaderStream.str();
+
+        std::ifstream fragmentShaderFile(filepathfs);
+        fShaderStream << fragmentShaderFile.rdbuf();
+        fragmentShaderFile.close();
+        fragmentCode = fShaderStream.str();
+
+        // If geometry shader path is present, also load a geometry shader
+        std::ifstream geometryShaderFile(filepathgs);
+        hasGeometryShaderCode = !geometryShaderFile.fail();
+        if (hasGeometryShaderCode)
+        {
+            std::stringstream gShaderStream;
+            gShaderStream << geometryShaderFile.rdbuf();
+            geometryShaderFile.close();
+            geometryCode = gShaderStream.str();
+        }
+    }
+    catch (std::exception e)
+    {
+        std::cout << "ERROR::SHADER: Failed to read shader files" << std::endl;
+    }
+
+    // 2. Now create shader object from source code
+    Compile(vertexCode, fragmentCode, hasGeometryShaderCode ? geometryCode : "");
+    if( !success )
+    {
+        std::cerr << filepathvs << " shader ";
+        throw std::bad_exception();
+    }
+}
 
 Shader &Shader::Use()
 {
     glUseProgram(this->ID);
     return *this;
 }
+void preprocess_shadersource(GLuint shader, GLenum type, std::string source){
 
-void Shader::Compile(const GLchar* vertexSource, const GLchar* fragmentSource, const GLchar* geometrySource)
+    const GLchar* sources[] = {
+      // Define GLSL version
+  #ifdef GL_ES_VERSION_2_0
+      "#version 300 es\n"
+  #else
+      "#version 300 es\n"
+  #endif
+      ,
+      // GLES2 precision specifiers
+  #ifdef GL_ES_VERSION_2_0
+      // Define default float precision for fragment shaders:
+      (type == GL_FRAGMENT_SHADER) ?
+      "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
+      "precision highp float;           \n"
+      "#else                            \n"
+      "precision mediump float;         \n"
+      "#endif                           \n"
+      : ""
+      // Note: OpenGL ES automatically defines this:
+      // #define GL_ES
+  #else
+      // Ignore GLES 2 precision specifiers:
+      "precision mediump float;         \n"
+  #endif
+      ,
+       source.c_str()};
+
+    glShaderSource(shader, 3, sources, NULL);
+
+}
+void Shader::Compile(std::string vertexSource, std::string fragmentSource, std::string geometrySource)
 {
     GLuint sVertex, sFragment, gShader;
     // Vertex Shader
     sVertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(sVertex, 1, &vertexSource, NULL);
+    preprocess_shadersource(sVertex, GL_VERTEX_SHADER, vertexSource);
     glCompileShader(sVertex);
     checkCompileErrors(sVertex, "VERTEX");
     // Fragment Shader
     sFragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(sFragment, 1, &fragmentSource, NULL);
+    preprocess_shadersource(sFragment, GL_FRAGMENT_SHADER, fragmentSource);
     glCompileShader(sFragment);
     checkCompileErrors(sFragment, "FRAGMENT");
     // If geometry shader source code is given, also compile geometry shader
-    if (geometrySource != nullptr)
+    if (!geometrySource.empty())
     {
         gShader = glCreateShader(GL_GEOMETRY_SHADER);
-        glShaderSource(gShader, 1, &geometrySource, NULL);
+        preprocess_shadersource(gShader, GL_GEOMETRY_SHADER, geometrySource);
         glCompileShader(gShader);
         checkCompileErrors(gShader, "GEOMETRY");
     }
@@ -33,14 +130,15 @@ void Shader::Compile(const GLchar* vertexSource, const GLchar* fragmentSource, c
     this->ID = glCreateProgram();
     glAttachShader(this->ID, sVertex);
     glAttachShader(this->ID, sFragment);
-    if (geometrySource != nullptr)
+    if (!geometrySource.empty())
         glAttachShader(this->ID, gShader);
     glLinkProgram(this->ID);
     checkCompileErrors(this->ID, "PROGRAM");
+
     // Delete the shaders as they're linked into our program now and no longer necessery
     glDeleteShader(sVertex);
     glDeleteShader(sFragment);
-    if (geometrySource != nullptr)
+    if (!geometrySource.empty())
         glDeleteShader(gShader);
 }
 
@@ -102,7 +200,6 @@ void Shader::SetMatrix4(const GLchar *name, const glm::mat4 &matrix, GLboolean u
 
 void Shader::checkCompileErrors(GLuint object, std::string type)
 {
-    GLint success;
     GLchar infoLog[1024];
     if (type != "PROGRAM")
     {

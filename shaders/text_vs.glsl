@@ -1,5 +1,3 @@
-#version 140
-
 attribute vec4 position;
 in vec2 texcoord;
 uniform mat4 MVPmat4;

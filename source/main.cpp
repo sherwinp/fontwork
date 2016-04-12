@@ -59,10 +59,11 @@ int main()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Compile and setup the shader
-    Shader shader = ResourceManager::LoadShader("shaders/text_vs.glsl", "shaders/text_fs.glsl", nullptr, "text");
+    Shader* shader = new Shader();
+    shader->Load("shaders/text_vs.glsl", "shaders/text_fs.glsl", "", "text");
     glm::mat4 projection = glm::ortho(0.0f, static_cast<GLfloat>(WIDTH), 0.0f, static_cast<GLfloat>(HEIGHT));
-    shader.Use();
-    glUniformMatrix4fv(glGetUniformLocation(shader.ID, "MVPmat4"), 1, GL_FALSE, glm::value_ptr(projection));
+    shader->Use();
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "MVPmat4"), 1, GL_FALSE, glm::value_ptr(projection));
 
     // FreeType
     FT_Library ft;
@@ -146,8 +147,8 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
-        RenderText(shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
+        RenderText(*shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
+        RenderText(*shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
        
         // Swap the buffers
         glfwSwapBuffers(window);
