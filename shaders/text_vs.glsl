@@ -1,4 +1,4 @@
-attribute vec4 position;
+in vec4 position;
 in vec2 texcoord;
 uniform mat4 MVPmat4;
 
